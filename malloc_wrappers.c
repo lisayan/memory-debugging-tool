@@ -27,77 +27,42 @@ static void init() {
 }
 
 void *malloc(size_t size) {
-    //printf("HIIIII\n");
-    //fputs("My malloc called\n", stderr);
-    //pthread_mutex_lock(&lock);
-    //static void *(*real_malloc)(size_t s);
-    char *error;
-    void *ptr;
-
+    pthread_mutex_lock(&lock);
     if (!real_malloc) {
-        /*real_malloc = dlsym(RTLD_NEXT, "malloc");
-        if ((error = dlerror()) != NULL) {
-            fputs(error, stderr);
-            exit(1);
-        }*/
       init();
     }
-    ptr = real_malloc(size);
-    //fputs("My malloc called\n", stderr);
-    //pthread_mutex_unlock(&lock);
+    void *ptr = real_malloc(size);
+    fputs("My malloc called\n", stderr);
+    pthread_mutex_unlock(&lock);
     return ptr;
 }
 
 void free(void *ptr) {
-    //printf("HELLOOOOO\n");
     pthread_mutex_lock(&lock);
-    static void (*freep)(void *);
-    char *error;
-
-    if (!freep) {
-        freep = dlsym(RTLD_NEXT, "free");
-        if ((error = dlerror()) != NULL) {
-            fputs(error, stderr);
-            exit(1);
-        }
+    if (!real_free) {
+        init();
     }
+    real_free(ptr);
+    fputs("My free called\n", stderr);
     pthread_mutex_unlock(&lock);
     return;
 }
 
 void *calloc(size_t nmemb, size_t size) {
     pthread_mutex_lock(&lock);
-
-    static void *(*callocp)(size_t nelt, size_t eltsize);
-    char *error;
-    void *ptr;
-
-    if (!callocp) {
-        callocp = dlsym(RTLD_NEXT, "calloc");
-        if ((error = dlerror()) != NULL) {
-            fputs(error, stderr);
-            exit(1);
-        }
+    if (!real_calloc) {
+      init();
     }
-    ptr = callocp(nmemb, size);
+    void *ptr = real_calloc(nmemb, size);
     pthread_mutex_unlock(&lock);
     return ptr;
 }
 
 void *realloc(void *buf, size_t size) {
     pthread_mutex_lock(&lock);
-    static void *(*reallocp)(void *b, size_t s);
-    char *error;
-    void *ptr;
-
-    if (!reallocp) {
-        reallocp = dlsym(RTLD_NEXT, "realloc");
-        if ((error = dlerror()) != NULL) {
-            fputs(error, stderr);
-            exit(1);
-        }
+    if (!real_realloc) {
     }
-    ptr = reallocp(buf, size);
+    void *ptr = real_realloc(buf, size);
     pthread_mutex_unlock(&lock);
     return ptr;
 }
