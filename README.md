@@ -78,7 +78,7 @@ This would work fine in a normal scenario, except since we are tracking
 statistics, `free()` is expecting a struct in front of the pointer. So for this
 purpose, it is better to call `malloc()` and manually clear the memory.
 
-### Tracking age of an allocation
+## Tracking age of an allocation
 
 Unfortunately, I ran out of time before I was able to implement this, but here
 I will outline how I would have done it.
@@ -96,5 +96,9 @@ keep an array of struct AllocationInfo and add one in `malloc()` and remove
 one in `free()`. When the message is printing to stderr, the array represents
 the current allocations and it would be O(n) to sort the ages into buckets.
 
-
+## Resources
+[Function Interposition in C](https://www.geeksforgeeks.org/function-interposition-in-c-with-an-example-of-user-defined-malloc/)
+[Tips of Malloc and Free: Making your own malloc library for troubleshooting](https://elinux.org/images/b/b5/Elc2013_Kobayashi.pdf)
+[Stack Overflow: Cannot reproduce segfault in gdb](https://stackoverflow.com/questions/7057651/cannot-reproduce-segfault-in-gdb)
+[Using make and writing Makefiles](https://www.cs.swarthmore.edu/~newhall/unixhelp/howto_makefiles.html)
 
