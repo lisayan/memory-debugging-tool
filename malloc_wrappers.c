@@ -16,7 +16,9 @@ static void *(*real_malloc)(size_t s) = NULL;
 static void (*real_free)(void *) = NULL;
 static void *(*real_calloc)(size_t nelt, size_t eltsize) = NULL;
 static void *(*real_realloc)(void *b, size_t s) = NULL;
-char *message = "%s";
+
+int first_printout = 0;
+char message[10000];
 
 static void init() {
   real_malloc = dlsym(RTLD_NEXT, "malloc");
@@ -31,12 +33,23 @@ static void init() {
 }
 
 static void printout() {
-  //char* message;
+  if (!first_printout) {
+    char *header = ">>>>>>>>>>>>> %s <<<<<<<<<<<<<\n";
+    char *overall_stats = "Overall stats:\n%d Current allocations\n%d Overall "
+      "allocations since start\n%dMiB Current total allocated size\n\n";
+    char *by_size = "Current allocations by size: (# = 8,123 current "
+      "allocations)\n0 - 4 bytes: %s\n4 - 8 bytes: %s\n8 - 16 bytes: %s\n"
+      "16 - 32 bytes: %s\n32 - 64 bytes: %s\n64 - 128 bytes: %s\n128 - 256 "
+      "bytes: %s\n256 - 512 bytes: %s\n512 - 1024 bytes: %s\n1024 - 2048 bytes: "
+      "%s\n2048 - 4096 bytes: %s\n4096 + bytes: %s\n\n";
+    char *by_age = "Current allocations by age: (# = 8,123 current allocations)\n"
+      "< 1 sec: %s\n< 10 sec: %s\n< 100 sec: %s\n< 1000 sec: %s\n> 1000 sec: %s\n\n";
+    strcat(message, header);
+    first_printout = 1;
+  }
   time_t current_time;
   time(&current_time);
-  //fprintf(stderr, "%s", ctime(&current_time));
-  //fputs(message, stderr);
-  fputs(ctime(&current_time), stderr);
+  fprintf(stderr, message, ctime(&current_time));
 }
 
 void *malloc(size_t size) {
@@ -60,9 +73,15 @@ void *malloc(size_t size) {
 
 void free(void *ptr) {
     pthread_mutex_lock(&lock);
+    void *caller;
     if (!real_free) {
         init();
     }
+    if (no_hook) {
+      return real_free(ptr);
+    }
+    no_hook = 1;
+    caller = __builtin_return_address(0);
     real_free(ptr);
     fputs("My free called\n", stderr);
     pthread_mutex_unlock(&lock);
@@ -71,9 +90,15 @@ void free(void *ptr) {
 
 void *calloc(size_t nmemb, size_t size) {
     pthread_mutex_lock(&lock);
+    void *caller;
     if (!real_calloc) {
       init();
     }
+    if (no_hook) {
+      return real_calloc(nmemb, size);
+    }
+    no_hook = 1;
+    caller = __builtin_return_address(0);
     void *ptr = real_calloc(nmemb, size);
     pthread_mutex_unlock(&lock);
     return ptr;
@@ -81,8 +106,15 @@ void *calloc(size_t nmemb, size_t size) {
 
 void *realloc(void *buf, size_t size) {
     pthread_mutex_lock(&lock);
+    void *caller;
     if (!real_realloc) {
+      init();
     }
+    if (no_hook) {
+      return real_realloc(buf, size);
+    }
+    no_hook = 1;
+    caller = __builtin_return_address(0);
     void *ptr = real_realloc(buf, size);
     pthread_mutex_unlock(&lock);
     return ptr;
