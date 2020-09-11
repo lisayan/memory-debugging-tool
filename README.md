@@ -38,9 +38,9 @@ LD_BIND_NOW=1 LD_PRELOAD=./malloc_wrappers.so ./realloc_and_free
 ### Tracking size of an allocation
 
 The tricky part about tracking size statistics of current
-allocations is that traditionally, free() has no knowledge of the pointer's
+allocations is that traditionally, `free()` has no knowledge of the pointer's
 size when it deallocates. My idea was to save this info in a struct
-and write it *before* the allocated block so that free() can access it later.
+and write it *before* the allocated block so that `free()` can access it later.
 
 I defined an AllocationInfo struct like so:
 
