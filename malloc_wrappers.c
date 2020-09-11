@@ -26,6 +26,8 @@ time_t last_print_time;
 /* Memory debugging tool stats. */
 int current_allocations = 0;
 int overall_allocations = 0;
+// NOTE: This is an approximation since realloc doesn't know the pointer size
+// without keeping track of pointer memory block sizes manually.
 int total_allocated_size_bytes = 0;
 
 static void init() {
@@ -98,7 +100,8 @@ void free(void *ptr) {
     no_hook = 1;
     caller = __builtin_return_address(0);
     real_free(ptr);
-    fputs("My free called\n", stderr);
+    current_allocations--;
+    printout();
     pthread_mutex_unlock(&lock);
     return;
 }
@@ -115,6 +118,10 @@ void *calloc(size_t nmemb, size_t size) {
     no_hook = 1;
     caller = __builtin_return_address(0);
     void *ptr = real_calloc(nmemb, size);
+    current_allocations++;
+    overall_allocations++;
+    total_allocated_size_bytes += size;
+    printout();
     pthread_mutex_unlock(&lock);
     return ptr;
 }
@@ -130,7 +137,18 @@ void *realloc(void *buf, size_t size) {
     }
     no_hook = 1;
     caller = __builtin_return_address(0);
+    if (!buf) {
+      // If buf is NULL, equivalent to malloc(size).
+      current_allocations++;
+      overall_allocations++;
+      total_allocated_size_bytes += size;
+    }
+    if (buf && size == 0) {
+      // If buf is not NULL and size is 0, equivalent to free(buf).
+      current_allocations--;
+    }
     void *ptr = real_realloc(buf, size);
+    printout();
     pthread_mutex_unlock(&lock);
     return ptr;
 }
