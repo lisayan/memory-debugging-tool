@@ -54,6 +54,7 @@ static void init() {
 }
 
 static void printout() {
+  pthread_mutex_lock(&lock);
   if (!first_printout) {
     char *header = ">>>>>>>>>>>>> %s <<<<<<<<<<<<<\n";
     char *overall_stats = "Overall stats:\n%d Current allocations\n%d Overall "
@@ -77,10 +78,10 @@ static void printout() {
           overall_allocations, total_allocated_size_bytes, byte_unit);
     time(&last_print_time);
   }
+  pthread_mutex_unlock(&lock);
  }
 
 void *malloc(size_t size) {
-    pthread_mutex_lock(&lock);
     void *caller;
     if (!real_malloc) {
       init();
@@ -93,6 +94,7 @@ void *malloc(size_t size) {
     void *ptr = real_malloc(sizeof(struct AllocationInfo) + size);
     
     // Save memory stats.
+    pthread_mutex_lock(&lock);
     current_allocations++;
     overall_allocations++;
     total_allocated_size_bytes += size;
@@ -101,15 +103,14 @@ void *malloc(size_t size) {
     struct AllocationInfo info = {ptr, init_time, size};
     // Save info before the allocated block.
     *(struct AllocationInfo *)ptr = info;
+    pthread_mutex_unlock(&lock);
 
     printout();
     no_hook = 0;
-    pthread_mutex_unlock(&lock);
     return (void *)ptr + sizeof(struct AllocationInfo);
 }
 
 void free(void *ptr) {
-    pthread_mutex_lock(&lock);
     void *caller;
     if (!real_free) {
         init();
@@ -121,20 +122,20 @@ void free(void *ptr) {
     caller = __builtin_return_address(0);
     
     // Read memory stats.
-    struct AllocationInfo *info_ptr = ptr - sizeof(struct AllocationInfo);
-    struct AllocationInfo info = *info_ptr;
-    real_free(ptr - sizeof(struct AllocationInfo));
+    pthread_mutex_lock(&lock);
+    void *info_ptr = ptr - sizeof(struct AllocationInfo);
+    struct AllocationInfo info = *(struct AllocationInfo *)info_ptr;
+    real_free(info_ptr);
     current_allocations--;
     total_allocated_size_bytes -= info.size;
+    pthread_mutex_unlock(&lock);
 
     printout();
     no_hook = 0;
-    pthread_mutex_unlock(&lock);
     return;
 }
 
 void *calloc(size_t nmemb, size_t size) {
-    pthread_mutex_lock(&lock);
     void *caller;
     init();
     if (no_hook) {
@@ -148,27 +149,15 @@ void *calloc(size_t nmemb, size_t size) {
     init();
     caller = __builtin_return_address(0);
     // Use custom malloc for easier memory stats management.
-    void *ptr = malloc(sizeof(struct AllocationInfo) + nmemb*size);
-    memset(ptr, 0, sizeof(struct AllocationInfo) + nmemb*size);
+    void *ptr = malloc(sizeof(nmemb*size));
+    memset(ptr-sizeof(struct AllocationInfo), 0, sizeof(struct AllocationInfo) + nmemb*size);
     
-    // Handle memory stats.
-    current_allocations++;
-    overall_allocations++;
-    total_allocated_size_bytes += nmemb*size;
-    time_t init_time;
-    time(&init_time);
-    struct AllocationInfo info = {ptr, init_time, nmemb*size};
-    // Save info before the allocated block.
-    *(struct AllocationInfo *)ptr = info;
-
     printout();
     no_hook = 0;
-    pthread_mutex_unlock(&lock);
-    return (void *)ptr + sizeof(struct AllocationInfo);
+    return ptr;
 }
 
 void *realloc(void *buf, size_t size) {
-    pthread_mutex_lock(&lock);
     void *caller;
     if (!real_realloc) {
       init();
@@ -178,19 +167,36 @@ void *realloc(void *buf, size_t size) {
     }
     no_hook = 1;
     caller = __builtin_return_address(0);
+    
+    void *ptr = NULL;
     if (!buf) {
       // If buf is NULL, equivalent to malloc(size).
-      current_allocations++;
-      overall_allocations++;
-      total_allocated_size_bytes += size;
-    }
-    if (buf && size == 0) {
+      no_hook = 0;
+      ptr = malloc(size); 
+      return ptr;
+    } else if (buf != NULL && size == 0) {
       // If buf is not NULL and size is 0, equivalent to free(buf).
-      current_allocations--;
+      no_hook = 0;
+      free(buf);
+      return NULL;
+    } 
+    
+    void *info_ptr = buf - sizeof(struct AllocationInfo);
+    struct AllocationInfo info = *(struct AllocationInfo *)info_ptr;
+    if (buf != NULL && size <= info.size) {
+      // New size is smaller, update struct and keep pointer.
+      info.size = size;
+      *(struct AllocationInfo *)info_ptr = info;
+      ptr = buf;
+    } else if (buf != NULL && size > info.size) {
+      // New size is larger, allocate new memory and copy data.
+      no_hook = 0;
+      ptr = malloc(size);
+      memcpy(ptr, buf, info.size);
+      free(buf);
+      return ptr;
     }
-    void *ptr = real_realloc(buf, size);
     printout();
     no_hook = 0;
-    pthread_mutex_unlock(&lock);
     return ptr;
 }
