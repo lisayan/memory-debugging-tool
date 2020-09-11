@@ -147,14 +147,24 @@ void *calloc(size_t nmemb, size_t size) {
     no_hook = 1;
     init();
     caller = __builtin_return_address(0);
-    void *ptr = real_calloc(nmemb, size);
+    // Use custom malloc for easier memory stats management.
+    void *ptr = malloc(sizeof(struct AllocationInfo) + nmemb*size);
+    memset(ptr, 0, sizeof(struct AllocationInfo) + nmemb*size);
+    
+    // Handle memory stats.
     current_allocations++;
     overall_allocations++;
-    total_allocated_size_bytes += size;
+    total_allocated_size_bytes += nmemb*size;
+    time_t init_time;
+    time(&init_time);
+    struct AllocationInfo info = {ptr, init_time, nmemb*size};
+    // Save info before the allocated block.
+    *(struct AllocationInfo *)ptr = info;
+
     printout();
     no_hook = 0;
     pthread_mutex_unlock(&lock);
-    return ptr;
+    return (void *)ptr + sizeof(struct AllocationInfo);
 }
 
 void *realloc(void *buf, size_t size) {
