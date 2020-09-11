@@ -17,6 +17,7 @@ static void *(*real_malloc)(size_t s) = NULL;
 static void (*real_free)(void *) = NULL;
 static void *(*real_calloc)(size_t nelt, size_t eltsize) = NULL;
 static void *(*real_realloc)(void *b, size_t s) = NULL;
+static unsigned char buffer [9000];
 
 /* Memory debugging tool printout variables. */
 int first_printout = 0;
@@ -111,15 +112,19 @@ void free(void *ptr) {
 void *calloc(size_t nmemb, size_t size) {
     pthread_mutex_lock(&lock);
     void *caller;
-    if (!real_calloc) {
-      init();
-    }
+    init();
     if (no_hook) {
+      if (!real_calloc) {
+        // dlsym() requires calloc
+        return buffer;
+      }
       return real_calloc(nmemb, size);
     }
     no_hook = 1;
+    init();
     caller = __builtin_return_address(0);
     void *ptr = real_calloc(nmemb, size);
+    printf("Called calloc\n");
     current_allocations++;
     overall_allocations++;
     total_allocated_size_bytes += size;

@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 int main() {
-    void *ptr = calloc(4, 4);
+    void *ptr = calloc(4, sizeof(char));
     sleep(6);
     free(ptr);
     return 0;
