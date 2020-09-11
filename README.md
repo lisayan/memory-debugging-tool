@@ -65,8 +65,8 @@ know that is not the beginning of the allocated block. Thus, under the hood I
 call `real_free(ptr-sizeof(struct AllocationInfo))`.
 
 ### Why I call malloc() in calloc() instead of real_calloc()
-There is a special reason why I decided to call malloc() and memset() the
-allocated memory manually instead of simply calling real_calloc(). According to
+There is a special reason why I decided to call `malloc()` and `memset()` the
+allocated memory manually instead of simply calling `real_calloc()`. According to
 [slide 34 and 35 of this lecture](https://elinux.org/images/b/b5/Elc2013_Kobayashi.pdf)
 If you compile the program in multi-threaded mode with `-lpthread`, `dlsym()` and
 `calloc()` call each other recursively until there is a segmentation fault. The
