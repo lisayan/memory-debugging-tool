@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 
+/* Malloc wrapper definitions. */
 static __thread int no_hook;
 pthread_mutex_t lock;
 static void *(*real_malloc)(size_t s) = NULL;
@@ -17,8 +18,15 @@ static void (*real_free)(void *) = NULL;
 static void *(*real_calloc)(size_t nelt, size_t eltsize) = NULL;
 static void *(*real_realloc)(void *b, size_t s) = NULL;
 
+/* Memory debugging tool printout variables. */
 int first_printout = 0;
 char message[10000];
+time_t last_print_time;
+
+/* Memory debugging tool stats. */
+int current_allocations = 0;
+int overall_allocations = 0;
+int total_allocated_size_bytes = 0;
 
 static void init() {
   real_malloc = dlsym(RTLD_NEXT, "malloc");
@@ -45,12 +53,17 @@ static void printout() {
     char *by_age = "Current allocations by age: (# = 8,123 current allocations)\n"
       "< 1 sec: %s\n< 10 sec: %s\n< 100 sec: %s\n< 1000 sec: %s\n> 1000 sec: %s\n\n";
     strcat(message, header);
+    strcat(message, overall_stats);
     first_printout = 1;
   }
   time_t current_time;
   time(&current_time);
-  fprintf(stderr, message, ctime(&current_time));
-}
+  if (difftime(current_time, last_print_time) >= 5) {
+    fprintf(stderr, message, ctime(&current_time), current_allocations,
+          overall_allocations, total_allocated_size_bytes);
+    time(&last_print_time);
+  }
+ }
 
 void *malloc(size_t size) {
     pthread_mutex_lock(&lock);
@@ -64,7 +77,9 @@ void *malloc(size_t size) {
     no_hook = 1;
     caller = __builtin_return_address(0);
     void *ptr = real_malloc(size);
-    fputs("My malloc called\n", stderr);
+    current_allocations++;
+    overall_allocations++;
+    total_allocated_size_bytes += size;
     printout();
     no_hook = 0;
     pthread_mutex_unlock(&lock);
