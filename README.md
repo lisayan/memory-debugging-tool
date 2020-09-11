@@ -98,7 +98,10 @@ the current allocations and it would be O(n) to sort the ages into buckets.
 
 ## Resources
 [Function Interposition in C](https://www.geeksforgeeks.org/function-interposition-in-c-with-an-example-of-user-defined-malloc/)
+
 [Tips of Malloc and Free: Making your own malloc library for troubleshooting](https://elinux.org/images/b/b5/Elc2013_Kobayashi.pdf)
+
 [Stack Overflow: Cannot reproduce segfault in gdb](https://stackoverflow.com/questions/7057651/cannot-reproduce-segfault-in-gdb)
+
 [Using make and writing Makefiles](https://www.cs.swarthmore.edu/~newhall/unixhelp/howto_makefiles.html)
 
