@@ -46,7 +46,7 @@ static void printout() {
   if (!first_printout) {
     char *header = ">>>>>>>>>>>>> %s <<<<<<<<<<<<<\n";
     char *overall_stats = "Overall stats:\n%d Current allocations\n%d Overall "
-      "allocations since start\n%dMiB Current total allocated size\n\n";
+      "allocations since start\n%d%s Current total allocated size\n\n";
     char *by_size = "Current allocations by size: (# = 8,123 current "
       "allocations)\n0 - 4 bytes: %s\n4 - 8 bytes: %s\n8 - 16 bytes: %s\n"
       "16 - 32 bytes: %s\n32 - 64 bytes: %s\n64 - 128 bytes: %s\n128 - 256 "
@@ -60,9 +60,10 @@ static void printout() {
   }
   time_t current_time;
   time(&current_time);
+  char* byte_unit = "B";
   if (difftime(current_time, last_print_time) >= 5) {
     fprintf(stderr, message, ctime(&current_time), current_allocations,
-          overall_allocations, total_allocated_size_bytes);
+          overall_allocations, total_allocated_size_bytes, byte_unit);
     time(&last_print_time);
   }
  }
@@ -102,6 +103,7 @@ void free(void *ptr) {
     real_free(ptr);
     current_allocations--;
     printout();
+    no_hook = 0;
     pthread_mutex_unlock(&lock);
     return;
 }
@@ -122,6 +124,7 @@ void *calloc(size_t nmemb, size_t size) {
     overall_allocations++;
     total_allocated_size_bytes += size;
     printout();
+    no_hook = 0;
     pthread_mutex_unlock(&lock);
     return ptr;
 }
@@ -149,6 +152,7 @@ void *realloc(void *buf, size_t size) {
     }
     void *ptr = real_realloc(buf, size);
     printout();
+    no_hook = 0;
     pthread_mutex_unlock(&lock);
     return ptr;
 }
