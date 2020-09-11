@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 int main() {
-    void *ptr = calloc(4, sizeof(char));
+    char *ptr = (char *)calloc(4, sizeof(char));
     sleep(6);
     free(ptr);
     return 0;

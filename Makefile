@@ -13,4 +13,4 @@ malloc_wrappers.so: malloc_wrappers.c
 	gcc -shared -fPIC -o malloc_wrappers.so malloc_wrappers.c -ldl
 
 clean:
-	rm malloc_and_free calloc_and_free malloc_wrappers.so
+	rm malloc_and_free calloc_and_free realloc_and_free malloc_wrappers.so
