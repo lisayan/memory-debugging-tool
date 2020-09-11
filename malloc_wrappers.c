@@ -17,7 +17,19 @@ static void *(*real_malloc)(size_t s) = NULL;
 static void (*real_free)(void *) = NULL;
 static void *(*real_calloc)(size_t nelt, size_t eltsize) = NULL;
 static void *(*real_realloc)(void *b, size_t s) = NULL;
-static unsigned char buffer [9000];
+
+/* Memory heap for allocations prior to dlsym loading. */
+#define INIT_HEAP_SIZE 1024
+static unsigned char buffer [INIT_HEAP_SIZE];
+
+struct AllocationInfo {
+  // Pointer to memory allocation.
+  void *ptr;
+  // Unix time in seconds when memory was allocated.
+  time_t init_time;
+  // Size of memory allocation in bytes.
+  size_t size;
+};
 
 /* Memory debugging tool printout variables. */
 int first_printout = 0;
@@ -27,8 +39,6 @@ time_t last_print_time;
 /* Memory debugging tool stats. */
 int current_allocations = 0;
 int overall_allocations = 0;
-// NOTE: This is an approximation since realloc doesn't know the pointer size
-// without keeping track of pointer memory block sizes manually.
 int total_allocated_size_bytes = 0;
 
 static void init() {
@@ -80,14 +90,22 @@ void *malloc(size_t size) {
     }
     no_hook = 1;
     caller = __builtin_return_address(0);
-    void *ptr = real_malloc(size);
+    void *ptr = real_malloc(sizeof(struct AllocationInfo) + size);
+    
+    // Save memory stats.
     current_allocations++;
     overall_allocations++;
     total_allocated_size_bytes += size;
+    time_t init_time;
+    time(&init_time);
+    struct AllocationInfo info = {ptr, init_time, size};
+    // Save info before the allocated block.
+    *(struct AllocationInfo *)ptr = info;
+
     printout();
     no_hook = 0;
     pthread_mutex_unlock(&lock);
-    return ptr;
+    return (void *)ptr + sizeof(struct AllocationInfo);
 }
 
 void free(void *ptr) {
@@ -101,8 +119,14 @@ void free(void *ptr) {
     }
     no_hook = 1;
     caller = __builtin_return_address(0);
-    real_free(ptr);
+    
+    // Read memory stats.
+    struct AllocationInfo *info_ptr = ptr - sizeof(struct AllocationInfo);
+    struct AllocationInfo info = *info_ptr;
+    real_free(ptr - sizeof(struct AllocationInfo));
     current_allocations--;
+    total_allocated_size_bytes -= info.size;
+
     printout();
     no_hook = 0;
     pthread_mutex_unlock(&lock);
@@ -124,7 +148,6 @@ void *calloc(size_t nmemb, size_t size) {
     init();
     caller = __builtin_return_address(0);
     void *ptr = real_calloc(nmemb, size);
-    printf("Called calloc\n");
     current_allocations++;
     overall_allocations++;
     total_allocated_size_bytes += size;
