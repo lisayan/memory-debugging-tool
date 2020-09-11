@@ -64,7 +64,7 @@ cannot simply call `free()` on the pointer I returned from `malloc()` since I
 know that is not the beginning of the allocated block. Thus, under the hood I
 call `real_free(ptr-sizeof(struct AllocationInfo))`.
 
-## Why I call malloc() in calloc() instead of real_calloc()
+### Why I call malloc() in calloc() instead of real_calloc()
 There is a special reason why I decided to call malloc() and memset() the
 allocated memory manually instead of simply calling real_calloc(). According to
 [slide 34 and 35 of this lecture](https://elinux.org/images/b/b5/Elc2013_Kobayashi.pdf)
@@ -78,7 +78,7 @@ This would work fine in a normal scenario, except since we are tracking
 statistics, `free()` is expecting a struct in front of the pointer. So for this
 purpose, it is better to call `malloc()` and manually clear the memory.
 
-## Tracking age of an allocation
+### Tracking age of an allocation
 
 Unfortunately, I ran out of time before I was able to implement this, but here
 I will outline how I would have done it.
