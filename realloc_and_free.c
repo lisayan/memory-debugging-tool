@@ -11,16 +11,14 @@
 int main() {
     // Case 1: Behaves like malloc.
     void *ptr = realloc(NULL, 4);
-    // Case 2: Same pointer, smaller size.
+    // Case 2: New pointer, smaller size.
     sleep(5);
     void *new_ptr = realloc(ptr, 2);
-    //assert(new_ptr == ptr);
     // Case 3: New pointer, bigger size.
     sleep(5);
     void *new_new_ptr = realloc(new_ptr, 4);
     // Case 4: Behaves like free.
     sleep(5);
     void *null_ptr = realloc(new_new_ptr, 0);
-    //assert(null_ptr == NULL);
     return 0;
 }

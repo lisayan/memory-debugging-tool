@@ -19,10 +19,6 @@ static void (*real_free)(void *) = NULL;
 static void *(*real_calloc)(size_t nelt, size_t eltsize) = NULL;
 static void *(*real_realloc)(void *b, size_t s) = NULL;
 
-/* Memory heap for allocations prior to dlsym loading. */
-#define INIT_HEAP_SIZE 1024
-static unsigned char buffer[INIT_HEAP_SIZE];
-
 struct AllocationInfo {
   // Pointer to memory allocation.
   void *ptr;
@@ -227,25 +223,13 @@ void *calloc(size_t nmemb, size_t size) {
 }
 
 void *realloc(void *buf, size_t size) {
-    void *caller;
-    if (!real_realloc) {
-      init();
-    }
-    if (no_hook) {
-      return real_realloc(buf, size);
-    }
-    no_hook = 1;
-    caller = __builtin_return_address(0);
-    
     void *ptr = NULL;
     if (!buf) {
       // If buf is NULL, equivalent to malloc(size).
-      no_hook = 0;
       ptr = malloc(size); 
       return ptr;
     } else if (buf != NULL && size == 0) {
       // If buf is not NULL and size is 0, equivalent to free(buf).
-      no_hook = 0;
       free(buf);
       return NULL;
     } 
@@ -253,19 +237,19 @@ void *realloc(void *buf, size_t size) {
     void *info_ptr = buf - sizeof(struct AllocationInfo);
     struct AllocationInfo info = *(struct AllocationInfo *)info_ptr;
     if (buf != NULL && size <= info.size) {
-      // New size is smaller, update struct and keep pointer.
-      info.size = size;
-      *(struct AllocationInfo *)info_ptr = info;
-      ptr = buf;
+      // New size is smaller, allocate new memory and copy data up until new
+      // size.
+      ptr = malloc(size);
+      memcpy(ptr, buf, size);
+      free(buf);
+      return ptr;
     } else if (buf != NULL && size > info.size) {
-      // New size is larger, allocate new memory and copy data.
-      no_hook = 0;
+      // New size is larger, allocate new memory and copy data up until old
+      // size.
       ptr = malloc(size);
       memcpy(ptr, buf, info.size);
       free(buf);
       return ptr;
     }
-    printout();
-    no_hook = 0;
     return ptr;
 }
